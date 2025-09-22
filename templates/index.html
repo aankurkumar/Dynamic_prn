@@ -1,0 +1,827 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PRN Manager — Dynamic Generator (v2)</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/css/bootstrap.min.css"  />
+    <style>
+      :root {
+        --primary-color: #2563eb;
+        --secondary-color: #1d4ed8;
+        --error-color: #ef4444;
+        --text-color: #333;
+        --light-gray: #f3f4f6;
+        --border-color: #e5e7eb;
+        --shadow: 0 6px 18px rgba(0, 0, 0, 0.03);
+      }
+      body { font-family: system-ui, -apple-system, Roboto, Arial; padding: 18px; max-width: 1200px; margin: auto; color: var(--text-color); }
+      .card { border:1px solid var(--border-color); padding:14px; border-radius:10px; box-shadow:var(--shadow); margin-bottom:12px; background:white; }
+      input[type="text"], input[type="file"], select { width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid var(--border-color); box-sizing:border-box; }
+      button { padding:10px 12px; border-radius:8px; border:0; background:var(--primary-color); color:white; cursor:pointer; transition:background-color .25s; }
+      button:hover { background:var(--secondary-color); }
+      .actions button { background:var(--error-color); }
+      .actions button:hover { background:#dc2626; }
+      .muted { color:#666; }
+      .var-row { display:flex; gap:8px; align-items:center; margin-bottom:12px; padding:8px; border-radius:8px; background-color:var(--light-gray); }
+      .var-row input { flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-color); }
+      .small { font-size:0.9rem; }
+      .admin { border-top:1px dashed #eee; padding-top:10px; margin-top:10px; }
+      .btn-group { display:flex; gap:8px; }
+      .status-message { padding:8px; margin:8px 0; border-radius:8px; text-align:center; }
+      .status-success { background-color:#dcfce7; color:#166534; }
+      .status-error { background-color:#fee2e2; color:#b91c1c; }
+      /* preview */
+      .preview-panel { display:flex; gap:16px; align-items:flex-start; margin-top:12px; }
+      .prn-list { width:100%; max-height:420px; overflow:auto; border:1px solid var(--border-color); padding:8px; border-radius:8px; background:#fafafa; }
+      .prn-item { display:flex; gap:8px; align-items:center; padding:8px; border-radius:8px; margin-bottom:8px; background:white; border:1px solid #eef2ff; }
+      .prn-thumb { width:96px; height:64px; object-fit:contain; border:1px solid #eee; background:#fff; padding:4px; border-radius:6px; }
+      .preview-area { width:60%; min-height:220px; border:1px dashed var(--border-color); border-radius:8px; padding:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#fff; }
+      .preview-area img { max-width:100%; max-height:420px; border-radius:6px; border:1px solid #eee; }
+      .no-preview { color:#666; text-align:center; }
+      .preview-modal { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:9999; }
+      .preview-modal .box { background:white; padding:12px; border-radius:8px; max-width:90%; max-height:90%; overflow:auto; }
+      .small-muted { font-size:0.85rem; color:#666; }
+      .invalid-feedback,.valid-feedback{display: block !important;}
+      .prn_image_view{ height: 200px;  border: 2px solid #ddd; position: relative;}
+ div#preview_image_wrap { display: none; flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overflow-y: auto;
+ }
+img#preview_image { width: 100%; transform: scale(1); }
+.download_prn_image { position: absolute; bottom: 0; right: 0; }
+      /* Generated history styles */
+      .generated-panel { margin-top:12px; }
+      .meta-row { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+      .edit-controls { display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap; }
+      .checkbox-inline { display:inline-flex; align-items:center; gap:6px; margin-left:6px; font-size:0.9rem; }
+    </style>
+  </head>
+  <body>
+    <section class="w-100 pb-3">
+      <h4 class="w-100 text-center py-3 bg-success text-white m-0">PRN Management — Dynamic Generator</h4>
+      <div class="card">
+        <div class="row">
+           <div id="status" style="margin-top:12px"></div>
+          <div class="col-lg-6 col-12">
+            <label class="form-label m-0" for="product_select">Select Product</label>
+            <select id="product_select" class="form-select"><option value="">-- Select Product --</option></select>
+          </div>
+          <div class="col-lg-6 col-12">
+            <div class="mb-3">
+              <label for="new_product" class="form-label m-0">Add New Product</label>
+              <div class="input-group">
+                <input type="text" id="new_product" class="form-control mt-0 mb-0">
+                <button class="btn btn-secondary" type="button" id="add_product">Add</button>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6 col-12">
+            <label class="form-label m-0" for="stage_select">Select Stage</label>
+            <select id="stage_select" class="form-select">
+              <option value="">-- Select Stage --</option>
+              <option value="Raw">Raw</option>
+              <option value="SFG">SFG</option>
+              <option value="FG">FG</option>
+            </select>
+          </div>
+
+           <div class="col-lg-6 col-12 my-3">
+            <div class="input-group">
+              <input type="file" class="form-control mt-0 mb-0" id="file" aria-label="Upload" accept=".prn" >
+              <button class="btn btn-primary" type="button" id="upload">Read PRN</button>
+            </div>
+            <div class="small-muted">When uploading, the UI will extract placeholders and also check which existing DB variables appear inside the PRN.</div>
+          </div>
+           <div class="col-lg-6 col-12 ">
+            <label class="form-label">PRN Image View</label>
+            <div class="prn_image_view">
+               <div id="preview_image_wrap" >
+                   <img id="preview_image" src="" alt="PRN Preview">
+                   <div class="download_prn_image" style="margin-top:8px; text-align:center;">
+                     <a id="download_preview" class="btn btn-secondary"  target="_blank">view</a>
+                     <!-- PRN download for generated or uploaded: will be set dynamically -->
+                     <!-- <a id="download_prn_file" class="btn btn-secondary" target="_blank" style="margin-left:6px;">download PRN</a> -->
+                   </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6 col-12">
+            <div class="btn-group mt-3">
+              <button type="button" id="load_product">Load</button>
+              <button type="button" id="refresh_products" style="background:#444;">Refresh</button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+<section class="w-100  pb-1">
+  <div class="card p-0">
+  <div class="card shadow-lg border-0">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">PRN Atrributes</h5>
+    </div>
+    <div class="card-body">
+      <!-- Static Info -->
+      <div class="row mb-3" id="extracted">
+      </div>
+  </div>
+  </div>
+  <div class="card">
+<div class="col-12">
+  <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">PRN Upload History</h5>
+    </div>
+   <div class="preview-panel" style="display:none;" id="preview_panel">
+        <div class="prn-list" id="prn_list"></div>
+        <div class="preview-area" id="preview_area" style="display: none;">
+          <div id="preview_placeholder" class="no-preview">
+            <div style="font-weight:600">Select a PRN to view preview</div>
+            <div class="small-muted">Previews are generated on upload; if preview is missing the server did not create it.</div>
+          </div>
+        </div>
+      </div>
+</div>
+
+    </div>
+</section>
+<!-- Generated PRN History -->
+<section class="w-100 pb-3">
+  <div class="card generated-panel">
+    <div class="card-header bg-success text-white"><h5 class="mb-0">PRN Created History</h5></div>
+    <div class="card-body">
+      <div id="generated_preview_panel" class="preview-panel" style="display:none;">
+        <div class="prn-list" id="generated_list"></div>
+        <div class="preview-area" id="generated_preview_area">
+          <div id="generated_preview_placeholder" class="no-preview">
+            <div style="font-weight:600">Select a created PRN to view preview</div>
+            <div class="small-muted">Previews are generated on creation.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+    <div id="products" class="card"></div>
+    <div id="preview_modal" class="preview-modal" role="dialog" aria-hidden="true">
+      <div class="box">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;">
+          <strong>PRN Preview</strong>
+          <button id="close_modal" class="btn" style="background:#ef4444">Close</button>
+        </div>
+        <div id="modal_content" style="text-align:center;"></div>
+      </div>
+    </div>
+    <script>
+    (function(){
+      const base = window.location.origin;
+      const $ = id => document.getElementById(id);
+      let lastUploadContext = { product: null, stage: null, template_filename: null, prn_text: null };
+      function showStatus(msg, isError) {
+        const s = $('status');
+        if (s) {
+          s.innerText = msg;
+          s.className = isError ? 'status-message status-error' : 'status-message status-success';
+        }
+      }
+      function showLoading(isLoading) {
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => button.disabled = isLoading);
+      }
+      async function doFetch(path, opts) {
+        showLoading(true);
+        try {
+          const res = await fetch(base + path, opts);
+          let json = null;
+          try { json = await res.json(); } catch(e) {}
+          return { ok: res.ok, status: res.status, json };
+        } catch(err) {
+          return { ok: false, status: 0, error: err.message }
+        } finally {
+          showLoading(false);
+        }
+      }
+      async function downloadImage(url, filename) {
+        try {
+          const resp = await fetch(url);
+          if(!resp.ok){ alert('Failed to fetch image for download'); return; }
+          const blob = await resp.blob();
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = filename || 'preview.png';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(link.href);
+        } catch(e){
+          alert('Download failed: ' + (e.message || e));
+        }
+      }
+      async function refreshProductDropdown(selected) {
+        const sel = $('product_select');
+        sel.innerHTML = '<option value="">-- Select Product --</option>';
+        const r = await doFetch('/list-products');
+        if(r.ok && Array.isArray(r.json)) {
+          r.json.forEach((obj) => {
+            const opt = document.createElement('option');
+            opt.value = obj.product_name;
+            opt.textContent = `${obj.product_name}`;
+            if(selected && selected === obj.product_name) opt.selected = true;
+            sel.appendChild(opt);
+          });
+        }
+      }
+      function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+      // render vars (original behavior) - updated to add Generate-on-save checkbox in edit UI
+      function renderVars(vars, productName, stage) {
+        const container = document.getElementById('vars');
+        let html = '';
+        if(!vars || vars.length===0){
+          html += '<div class="muted">No variables</div>';
+        }
+        vars.forEach(v => {
+          const k = v.field_name, val = v.field_value;
+          html += `<div class="var-row" data-name="${k}">
+                    <div style="flex:1"><strong>${k}</strong>: <span class="muted">${val}</span></div>
+                    <div class="actions">
+                      <button type="button" class="edit" data-name="${k}">Edit</button>
+                    </div>
+                  </div>`;
+        });
+        container.innerHTML = html;
+        // Edit
+        container.querySelectorAll('.edit').forEach(btn => btn.addEventListener('click', function(){
+          const name = this.dataset.name;
+          const row = this.closest('.var-row');
+          const currentVal = vars.find(x => x.field_name === name)?.field_value || '';
+          // edit UI includes a checkbox to optionally generate PRN after saving (uses latest template)
+          const genCheckboxId = `gen_after_save_${encodeURIComponent(name)}`;
+          row.innerHTML = `
+            <input class="edit_name" value="${name}" style="min-width:120px" />
+            <input class="edit_value" value="${currentVal}" />
+            <div class="edit-controls">
+              <label class="checkbox-inline"><input type="checkbox" id="${genCheckboxId}" /> Generate PRN after save (use latest template)</label>
+              <button class="save_edit btn btn-sm btn-primary">Save</button>
+              <button class="cancel_edit btn btn-sm btn-secondary">Cancel</button>
+            </div>
+          `;
+          row.querySelector('.cancel_edit').addEventListener('click', () => $('product_select').dispatchEvent(new Event('change')));
+          row.querySelector('.save_edit').addEventListener('click', async () => {
+            const newName = row.querySelector('.edit_name').value.trim();
+            const newValue = row.querySelector('.edit_value').value;
+            const genAfter = row.querySelector(`#${genCheckboxId}`).checked;
+            if(!newName){ alert('name required'); return; }
+            // call update-variable
+            const res = await doFetch('/update-variable', {
+              method:'PUT',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                product_name: productName,
+                stage: stage,
+                old_field_name: name,
+                new_field_name: newName,
+                new_field_value: newValue
+              })
+            });
+            if(!res.ok){ alert('Update failed'); $('product_select').dispatchEvent(new Event('change')); return; }
+            // If user requested generation after save, prepare and call /save-fields with generate_filled:true
+            if(genAfter){
+              // fetch the current variables map from server (so we replace using full context)
+              const cur = await doFetch('/get-product/' + encodeURIComponent(productName) + '?stage=' + encodeURIComponent(stage));
+              if(!cur.ok || !cur.json){ alert('Could not fetch variables to generate PRN'); $('product_select').dispatchEvent(new Event('change')); return; }
+              // build variables map
+              const variablesObj = {};
+              (cur.json.variables || []).forEach(item => { variablesObj[item.field_name] = item.field_value; });
+              // ensure the just-updated field is reflected
+              variablesObj[newName] = newValue;
+              // determine template: prefer lastUploadContext.template_filename, otherwise pick most recent uploaded for this product/stage
+              let template = lastUploadContext.template_filename;
+              if(!template){
+                // try to pick from server prns_for_stage
+                const prns = cur.json.prns_for_stage || [];
+                if(prns.length > 0){
+                  template = prns[0].prn_filename;
+                }
+              }
+              if(!template){
+                alert('No template PRN available to generate from. Upload a PRN first (or use Generate PRN Now after uploading).');
+                $('product_select').dispatchEvent(new Event('change'));
+                return;
+              }
+              // call /save-fields with generate_filled:true
+              const genPayload = { product_name: productName, stage: stage, variables: variablesObj, generate_filled: true, source_prn_filename: template };
+              const genRes = await doFetch('/save-fields', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(genPayload) });
+              if(!genRes.ok){
+                alert('Generation after save failed.'); $('product_select').dispatchEvent(new Event('change')); return;
+              }
+              // success: refresh UI and show generated preview if any
+              showStatus('Variable updated and PRN generated');
+              $('product_select').dispatchEvent(new Event('change'));
+              // show the generated item in generated pane if returned
+              if(genRes.json && genRes.json.filled_prn_filename){
+                // refresh generated history
+                const generated = await fetchGenerated(productName, stage);
+                renderGenerated(generated, productName, stage);
+              }
+            } else {
+              showStatus('Variable updated');
+              $('product_select').dispatchEvent(new Event('change'));
+            }
+          });
+        }));
+      }
+      // PRN list & preview helpers
+      function showPreviewInPane(prnRecord, productName, stage) {
+        const previewPanel = $('preview_panel');
+        const previewPlaceholder = $('preview_placeholder');
+        const previewWrap = $('preview_image_wrap');
+        const previewImg = $('preview_image');
+        const downloadAnchor = $('download_preview');
+        const downloadPrnAnchor = $('download_prn_file');
+        if (!prnRecord) {
+          previewPlaceholder.style.display = 'block';
+          previewWrap.style.display = 'none';
+          previewPanel.style.display = 'flex';
+          return;
+        }
+        // preview_url may be either uploaded preview (/preview/...) or generated preview
+        if (prnRecord.preview_url) {
+          previewImg.src = prnRecord.preview_url;
+          // change download anchor to use blob-download so users can save PNG
+          downloadAnchor.onclick = async (ev) => { ev.preventDefault(); await downloadImage(prnRecord.preview_url, (prnRecord.prn_filename||'preview') + '.png'); };
+          downloadAnchor.removeAttribute('href');
+          downloadAnchor.style.display = 'inline-block';
+          previewPlaceholder.style.display = 'none';
+          previewWrap.style.display = 'flex';
+          previewPanel.style.display = 'flex';
+        } else {
+          downloadAnchor.onclick = null;
+          downloadAnchor.removeAttribute('href');
+          downloadAnchor.style.display = 'none';
+          previewPlaceholder.style.display = 'block';
+          previewWrap.style.display = 'none';
+          previewPanel.style.display = 'flex';
+        }
+        // PRN download link: for uploaded templates use /get-prn (downloadable)
+        if (prnRecord.prn_download_url) {
+          downloadPrnAnchor.href = prnRecord.prn_download_url;
+          downloadPrnAnchor.style.display = 'inline-block';
+        } else if (prnRecord.prn_filename) {
+          downloadPrnAnchor.href = `${base}/get-prn/${encodeURIComponent(productName)}/${encodeURIComponent(stage)}/${encodeURIComponent(prnRecord.prn_filename)}`;
+          downloadPrnAnchor.style.display = 'inline-block';
+        } else {
+          downloadPrnAnchor.style.display = 'none';
+        }
+      }
+      function renderPrns(prns = [], productName, stage) {
+        const list = $('prn_list'); list.innerHTML = '';
+        if(!prns || prns.length === 0){
+          list.innerHTML = '<div class="small-muted">No PRNs uploaded for this stage.</div>';
+          $('preview_panel').style.display = 'none';
+          return;
+        }
+        $('preview_panel').style.display = 'flex';
+        prns.forEach(p => {
+          const item = document.createElement('div'); item.className = 'prn-item';
+          const thumb = document.createElement('img'); thumb.className = 'prn-thumb';
+          thumb.alt = p.prn_filename;
+          thumb.src = p.preview_url ? p.preview_url : 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2264%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23f3f4f6%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2210%22 fill=%22%23666%22>no preview</text></svg>';
+          const meta = document.createElement('div'); meta.style.flex = '1';
+          meta.innerHTML = `<div style="font-weight:600">${p.prn_filename}</div><div class="small-muted">${p.uploaded_at || ''}</div>`;
+          const actions = document.createElement('div'); actions.style.display='flex'; actions.style.flexDirection='column'; actions.style.gap='6px';
+          const viewBtn = document.createElement('button'); viewBtn.textContent='View'; viewBtn.className='btn btn-sm btn-primary';
+          viewBtn.addEventListener('click', ()=> { showPreviewInPane(p, productName, stage); openPreview(p, productName, stage); });
+          const dlBtn = document.createElement('button'); dlBtn.textContent='Download'; dlBtn.className='btn btn-sm btn-primary';
+          dlBtn.addEventListener('click', ()=> { const url = `${base}/get-prn/${encodeURIComponent(productName)}/${encodeURIComponent(stage)}/${encodeURIComponent(p.prn_filename)}`; window.open(url, '_blank'); });
+          const delBtn = document.createElement('button'); delBtn.textContent='Delete'; delBtn.className='btn btn-sm btn-primary';
+          delBtn.style.background = '#ef4444';
+          delBtn.addEventListener('click', async ()=> {
+            if(!confirm('Delete ' + p.prn_filename + '?')) return;
+            const res = await doFetch('/delete-prn', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ product_name: productName, stage: stage, prn_filename: p.prn_filename }) });
+            if(!res.ok){ alert('Delete failed'); return; }
+            $('product_select').dispatchEvent(new Event('change'));
+          });
+          actions.appendChild(viewBtn); actions.appendChild(dlBtn); actions.appendChild(delBtn);
+          item.appendChild(thumb); item.appendChild(meta); item.appendChild(actions);
+          list.appendChild(item);
+        });
+      }
+      function openPreview(prnRecord, productName, stage){
+        const modal = $('preview_modal'); const modalContent = $('modal_content'); modalContent.innerHTML = '';
+        if(prnRecord.preview_url){
+          const img = document.createElement('img'); img.src = prnRecord.preview_url; img.style.maxWidth='100%';
+          modalContent.appendChild(img);
+          const dl = document.createElement('div'); dl.style.marginTop='8px';
+          // add explicit PNG download link that fetches the PNG and forces download
+          const downloadBtn = document.createElement('a'); downloadBtn.className = 'btn'; downloadBtn.style.background='#111827'; downloadBtn.style.color='white';
+          downloadBtn.href = '#';
+          downloadBtn.textContent = 'Open image in new tab';
+          downloadBtn.addEventListener('click', (e)=>{ e.preventDefault(); window.open(prnRecord.preview_url, '_blank'); });
+          const downloadPng = document.createElement('a'); downloadPng.className = 'btn'; downloadPng.style.marginLeft='8px';
+          downloadPng.href = '#';
+          downloadPng.textContent = 'Download PNG';
+          downloadPng.addEventListener('click', async (ev)=>{ ev.preventDefault(); await downloadImage(prnRecord.preview_url, (prnRecord.prn_filename||'preview') + '.png'); });
+          const downloadPrn = document.createElement('a'); downloadPrn.className = 'btn'; downloadPrn.style.marginLeft='8px';
+          downloadPrn.href = `${base}/get-prn/${encodeURIComponent(productName)}/${encodeURIComponent(stage)}/${encodeURIComponent(prnRecord.prn_filename)}`;
+          downloadPrn.target = '_blank';
+          downloadPrn.textContent = 'Download PRN';
+          dl.appendChild(downloadBtn); dl.appendChild(downloadPng); dl.appendChild(downloadPrn);
+          modalContent.appendChild(dl);
+        } else {
+          modalContent.innerHTML = `<div style="padding:16px"><strong>No preview available</strong><div class="small-muted" style="margin-top:8px">The server did not create a preview for this PRN.</div></div>`;
+        }
+        modal.style.display = 'flex';
+      }
+      function closeModal(){ $('preview_modal').style.display = 'none'; $('modal_content').innerHTML = ''; }
+      // read file text helper
+      function readFileText(file){
+        return new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.onerror = () => rej(reader.error);
+          reader.readAsText(file);
+        });
+      }
+      // ------------------ Generated PRN helpers (use existing endpoints) ------------------
+      // We treat PRNs with filename containing "_filled_" as generated.
+      async function fetchGenerated(product, stage){
+        if(!product || !stage) return [];
+        // use /list-prns to get all PRNs for the product+stage, then filter filenames that look generated
+        const r = await doFetch('/list-prns/' + encodeURIComponent(product) + '/' + encodeURIComponent(stage));
+        if(!r.ok) return [];
+        const all = r.json || [];
+        // normalize rows: they contain prn_filename and preview_path; build preview_url if preview_path exists
+        const normalized = (all || []).map(x => {
+          const preview_url = x.preview_path ? `/preview/${encodeURIComponent(product)}/${encodeURIComponent(stage)}/${encodeURIComponent(x.prn_filename)}` : null;
+          return { prn_filename: x.prn_filename, preview_url, prn_download_url: `${base}/get-prn/${encodeURIComponent(product)}/${encodeURIComponent(stage)}/${encodeURIComponent(x.prn_filename)}`, created_at: x.uploaded_at };
+        });
+        // filter generated by filename pattern
+        return normalized.filter(p => p.prn_filename && p.prn_filename.indexOf('_filled_') !== -1).sort((a,b)=> (b.created_at||'') > (a.created_at||'') ? 1 : -1);
+      }
+      function renderGenerated(prns = [], productName, stage){
+        const list = $('generated_list'); list.innerHTML = '';
+        if(!prns || prns.length === 0){
+          list.innerHTML = '<div class="small-muted">No generated PRNs for this stage.</div>';
+          $('generated_preview_panel').style.display = 'none';
+          return;
+        }
+        $('generated_preview_panel').style.display = 'flex';
+        prns.forEach(p => {
+          const item = document.createElement('div'); item.className = 'prn-item';
+          const thumb = document.createElement('img'); thumb.className = 'prn-thumb';
+          thumb.alt = p.prn_filename;
+          thumb.src = p.preview_url ? p.preview_url : 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2264%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23f3f4f6%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2210%22 fill=%22%23666%22>no preview</text></svg>';
+          const meta = document.createElement('div'); meta.style.flex = '1';
+          meta.innerHTML = `<div style="font-weight:600">${p.prn_filename}</div><div class="small-muted">${p.created_at || ''}</div>`;
+          const actions = document.createElement('div'); actions.style.display='flex'; actions.style.flexDirection='column'; actions.style.gap='6px';
+          const viewBtn = document.createElement('button'); viewBtn.textContent='View'; viewBtn.className='btn btn-sm btn-primary';
+          viewBtn.addEventListener('click', ()=> { showGeneratedPreviewInPane(p, productName, stage); openGeneratedPreview(p, productName, stage); });
+          const dlPrnBtn = document.createElement('button'); dlPrnBtn.textContent='Download PRN'; dlPrnBtn.className='btn btn-sm btn-primary';
+          dlPrnBtn.addEventListener('click', ()=> { const url = p.prn_download_url; window.open(url, '_blank'); });
+          const dlPngBtn = document.createElement('button'); dlPngBtn.textContent='Download PNG'; dlPngBtn.className='btn btn-sm btn-primary';
+          dlPngBtn.addEventListener('click', async ()=> { if(p.preview_url) await downloadImage(p.preview_url, p.prn_filename + '.png'); else alert('No preview available'); });
+          const delBtn = document.createElement('button'); delBtn.textContent='Delete'; delBtn.className='btn btn-sm btn-primary'; delBtn.style.background='#ef4444';
+          delBtn.addEventListener('click', async ()=> {
+            if(!confirm('Delete generated ' + p.prn_filename + '?')) return;
+            const res = await doFetch('/delete-prn', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ product_name: productName, stage: stage, prn_filename: p.prn_filename }) });
+            if(!res.ok){ alert('Delete failed'); return; }
+            const refreshed = await fetchGenerated(productName, stage);
+            renderGenerated(refreshed, productName, stage);
+            // also refresh main lists
+            $('product_select').dispatchEvent(new Event('change'));
+          });
+          actions.appendChild(viewBtn); actions.appendChild(dlPrnBtn); actions.appendChild(dlPngBtn); actions.appendChild(delBtn);
+          item.appendChild(thumb); item.appendChild(meta); item.appendChild(actions);
+          list.appendChild(item);
+        });
+      }
+      function showGeneratedPreviewInPane(prnRecord, productName, stage) {
+        const previewPanel = $('generated_preview_panel');
+        const previewPlaceholder = $('generated_preview_placeholder');
+        const previewArea = $('generated_preview_area');
+        const downloadPrnAnchor = $('download_prn_file');
+        const downloadPngAnchor = $('download_preview');
+        if (!prnRecord) {
+          previewPlaceholder.style.display = 'block';
+          previewArea.querySelector('img')?.remove();
+          previewPanel.style.display = 'flex';
+          return;
+        }
+        previewPlaceholder.style.display = 'none';
+        // ensure img exists
+        let img = previewArea.querySelector('img');
+        if(!img){ img = document.createElement('img'); previewArea.appendChild(img); }
+        img.src = prnRecord.preview_url || '';
+        if (prnRecord.preview_url) {
+          downloadPngAnchor.onclick = async (e) => { e.preventDefault(); await downloadImage(prnRecord.preview_url, prnRecord.prn_filename + '.png'); };
+          downloadPngAnchor.style.display = 'inline-block';
+        } else {
+          downloadPngAnchor.onclick = null;
+          downloadPngAnchor.style.display = 'none';
+        }
+        if (prnRecord.prn_download_url) downloadPrnAnchor.href = prnRecord.prn_download_url;
+        else downloadPrnAnchor.removeAttribute('href');
+        previewPanel.style.display = 'flex';
+      }
+      function openGeneratedPreview(prnRecord, productName, stage){
+        const modal = $('preview_modal'); const modalContent = $('modal_content'); modalContent.innerHTML = '';
+        if(prnRecord.preview_url){
+          const img = document.createElement('img'); img.src = prnRecord.preview_url; img.style.maxWidth='100%';
+          modalContent.appendChild(img);
+          const dl = document.createElement('div'); dl.style.marginTop='8px';
+          const downloadBtn = document.createElement('a'); downloadBtn.className = 'btn'; downloadBtn.style.background = '#111827'; downloadBtn.style.color='white';
+          downloadBtn.textContent = 'Open in new tab';
+          downloadBtn.href = prnRecord.preview_url; downloadBtn.target = '_blank';
+          const downloadPng = document.createElement('a'); downloadPng.className = 'btn'; downloadPng.style.marginLeft='8px';
+          downloadPng.href = '#'; downloadPng.textContent = 'Download PNG';
+          downloadPng.addEventListener('click', async (ev)=>{ ev.preventDefault(); await downloadImage(prnRecord.preview_url, prnRecord.prn_filename + '.png'); });
+          const downloadPrn = document.createElement('a'); downloadPrn.className = 'btn'; downloadPrn.style.marginLeft='8px';
+          downloadPrn.href = prnRecord.prn_download_url; downloadPrn.target = '_blank'; downloadPrn.textContent = 'Download PRN';
+          dl.appendChild(downloadBtn); dl.appendChild(downloadPng); dl.appendChild(downloadPrn);
+          modalContent.appendChild(dl);
+        } else {
+          modalContent.innerHTML = `<div style="padding:16px"><strong>No preview available</strong><div class="small-muted" style="margin-top:8px">The server did not create a preview for this PRN.</div></div>`;
+        }
+        modal.style.display = 'flex';
+      }
+      // ------------------ Generate PRN (via /save-fields with generate_filled: true) ------------------
+      async function generateFromContext(productName, stageName, variables, preferTemplate) {
+        if(!productName || !stageName) { showStatus('Product and stage required to generate', true); return null; }
+        // preferTemplate true -> try to use lastUploadContext.template_filename
+        if(preferTemplate && lastUploadContext.template_filename){
+          const payload = { product_name: productName, stage: stageName, variables, generate_filled: true, source_prn_filename: lastUploadContext.template_filename };
+          showStatus('Generating PRN from uploaded template...');
+          const res = await doFetch('/save-fields', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          if(!res.ok){ showStatus('Generate failed', true); return null; }
+          showStatus('Generated PRN');
+          // server returns filled_prn_filename and preview_url when created
+          return res.json || null;
+        } else {
+          // if we don't have a template filename, server-side generation requires a source file; instruct user
+          showStatus('No template available to generate from. Upload a PRN first and try again (or save values with \"Also generate PRN when saving to DB\").', true);
+          return null;
+        }
+      }
+      // handle the upload result + matching info
+      async function handleAfterUpload(uploadJson, matchMap, productName, stageName, prnText) {
+        // store context for generation
+        lastUploadContext.product = productName;
+        lastUploadContext.stage = stageName;
+        lastUploadContext.template_filename = uploadJson.filename || lastUploadContext.template_filename;
+        lastUploadContext.prn_text = prnText || lastUploadContext.prn_text;
+        // prefer server-side fields (uploadJson.fields). If empty, use matchMap keys as fields.
+        const serverFields = (uploadJson && Array.isArray(uploadJson.fields)) ? uploadJson.fields : [];
+        let fields = serverFields.slice();
+        if (fields.length === 0 && matchMap) {
+          // get keys from matched map (presence indicates field-like tokens)
+          fields = Object.keys(matchMap || {});
+        }
+        // fetch existing variables (to prefill values)
+        const existing = await doFetch('/get-product/' + encodeURIComponent(productName) + '?stage=' + encodeURIComponent(stageName));
+        const vars = (existing.ok && existing.json && existing.json.variables) ? existing.json.variables : [];
+        // build extracted UI
+        let html = `<div class="col-md-4">
+          <p><strong>Product:</strong> <span class="text-primary">${productName}</span></p>
+        </div><div class="col-md-4">
+          <p><strong>Stage:</strong> <span class="text-success">${stageName}</span></p>
+        </div>
+        <div class="col-md-4">
+          <p><strong>Uploaded file:</strong>
+          <span class="badge bg-secondary"> ${uploadJson.filename || ''}</span></p>
+        </div>`;
+
+        html += `<div class="row mb-3">`;
+        if(fields.length === 0){
+          html += `<div class="muted">No placeholders extracted from the PRN.</div>`;
+        } else {
+          fields.forEach(fld => {
+            const existingVal = vars.find(v => v.field_name === fld)?.field_value || '';
+            const matched = matchMap && (matchMap[fld] === true);
+            html += `<div class="col-lg-3 pb-3">
+             <label class="form-label">${fld}</label>
+                      <input data-field="${escapeHtml(fld)}" value="${escapeHtml(existingVal)}" class="form-control" />
+                      <div>${ matched ? '<span class="valid-feedback">matched</span>' : '<span class="invalid-feedback">not matched</span>' }</div>
+                    </div>`;
+          });
+        }
+        html += `</div>`;
+        // add generation controls
+        html += `<div class="row mb-3"><div class="col-md-6">
+                 <label><input type="checkbox" id="generate_on_save" /> Also generate PRN when saving to DB</label>
+                 <div style="margin-top:8px;"><button id="generateNow" class="btn btn-success">Generate PRN Now (from uploaded template)</button></div>
+                 </div>
+                 <div class="col-md-6 text-end">
+                 <div style="margin-bottom:6px;">
+                   <button type="submit" id="saveValues" class="btn btn-primary px-4">💾 Save to DB</button>
+                   <button id="applyMatched" class="btn btn-secondary">Apply matched DB values</button>
+                 </div>
+                 <div><small class="muted">Tip: use 'Generate PRN Now' to create a PRN from the current inputs without saving variable changes (it still reads from the last uploaded template).</small></div>
+                 </div></div>`;
+        html += `<div class="col-12"><details><summary class="small btn btn-success">View PRN content (raw)</summary>
+                     <pre id="prn_text" style="text-align:left;max-height:220px; overflow:auto; padding:8px; background:#f7f7f7; border-radius:6px;">${escapeHtml(prnText || '')}</pre>
+                   </details>
+                   <div style="margin-top:6px;"><button id="rerunMatch" class="btn" type="button">Re-run variable match</button></div>
+                 </div>`;
+        $('extracted').innerHTML = html;
+
+        // Save handler (unchanged but optionally generate)
+        document.getElementById('saveValues').addEventListener('click', async () => {
+          const inputs = Array.from(document.querySelectorAll('[data-field]'));
+          const variables = {};
+          inputs.forEach(i => variables[i.dataset.field] = i.value);
+          const payload = { product_name: productName, stage: stageName, variables };
+          // if user wants to generate on save and we have a template, set generate_filled/source_prn_filename
+          const genOnSave = document.getElementById('generate_on_save')?.checked;
+          if(genOnSave && lastUploadContext.template_filename){
+            payload.generate_filled = true;
+            payload.source_prn_filename = lastUploadContext.template_filename;
+          } else if(genOnSave && !lastUploadContext.template_filename){
+            // try pick the latest uploaded template for product/stage
+            const cur = await doFetch('/get-product/' + encodeURIComponent(productName) + '?stage=' + encodeURIComponent(stageName));
+            if(cur.ok && cur.json){
+              const prns = cur.json.prns_for_stage || [];
+              if(prns.length > 0){
+                payload.generate_filled = true;
+                payload.source_prn_filename = prns[0].prn_filename;
+              } else {
+                alert('No template PRN available to generate from. Upload a PRN first.');
+              }
+            }
+          }
+          const res = await doFetch('/save-fields', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+          if(!res.ok){ alert('Save failed'); return; }
+          showStatus('Saved');
+          $('product_select').dispatchEvent(new Event('change'));
+          // if generated was created, server returns filled_prn_filename and preview_url
+          if(res.json && res.json.filled_prn_filename){
+            // refresh generated history
+            const generated = await fetchGenerated(productName, stageName);
+            renderGenerated(generated, productName, stageName);
+            // show generated preview in top panel
+            const justGen = { prn_filename: res.json.filled_prn_filename, preview_url: res.json.preview_url, uploaded_at: res.json.created_at || null, prn_download_url: `${base}/get-prn/${encodeURIComponent(productName)}/${encodeURIComponent(stageName)}/${encodeURIComponent(res.json.filled_prn_filename)}` };
+            showPreviewInPane(justGen, productName, stageName);
+          }
+        });
+
+        // Generate Now button: generate from last uploaded template (requires template)
+        document.getElementById('generateNow').addEventListener('click', async () => {
+          const inputs = Array.from(document.querySelectorAll('[data-field]'));
+          const variables = {};
+          inputs.forEach(i => variables[i.dataset.field] = i.value);
+          // prefer template generation; server-side generation relies on source_prn_filename
+          const gen = await generateFromContext(productName, stageName, variables, true);
+          if(gen && gen.filled_prn_filename){
+            // refresh generated list
+            const generated = await fetchGenerated(productName, stageName);
+            renderGenerated(generated, productName, stageName);
+            // show in top preview area as well
+            const justGen = { prn_filename: gen.filled_prn_filename, prn_download_url: `${base}/get-prn/${encodeURIComponent(productName)}/${encodeURIComponent(stageName)}/${encodeURIComponent(gen.filled_prn_filename)}`, preview_url: gen.preview_url, created_at: gen.created_at || null };
+            showPreviewInPane(justGen, productName, stageName);
+          }
+        });
+
+        // Re-run match button (calls /add_variable with prn content)
+        document.getElementById('rerunMatch').addEventListener('click', async () => {
+          showStatus('Re-running match...');
+          debugger;
+          const res = await doFetch('/add_variable', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ product_name: productName, stage: stageName, prn_content: prnText })
+          });
+          if(!res.ok){ showStatus('Match failed', true); return; }
+          const map = (res.json && res.json.matched_variables) ? res.json.matched_variables : {};
+          document.querySelectorAll('[data-field]').forEach(inp => {
+            const fname = inp.dataset.field;
+            const badgeContainer = inp.nextElementSibling;
+            if(badgeContainer) {
+              badgeContainer.innerHTML = map[fname] ? '<span class="matched-yes">matched</span>' : '<span class="matched-no">not matched</span>';
+            }
+          });
+          showStatus('Match updated');
+        });
+
+        // Apply matched DB values (prefill input values with DB values if present)
+        document.getElementById('applyMatched').addEventListener('click', async () => {
+          const fresh = await doFetch('/get-product/' + encodeURIComponent(productName) + '?stage=' + encodeURIComponent(stageName));
+          const freshVars = (fresh.ok && fresh.json && fresh.json.variables) ? fresh.json.variables : [];
+          const inputs = Array.from(document.querySelectorAll('[data-field]'));
+          inputs.forEach(i => {
+            const fname = i.dataset.field;
+            const found = freshVars.find(v => v.field_name === fname);
+            if(found && found.field_value !== null && found.field_value !== undefined) {
+              i.value = found.field_value;
+            }
+          });
+          showStatus('Applied matched DB values (where available).');
+        });
+
+        // refresh generated history for this product/stage
+        const generated = await fetchGenerated(productName, stageName);
+        renderGenerated(generated, productName, stageName);
+      }
+
+      // DOM ready
+      document.addEventListener('DOMContentLoaded', async () => {
+        await refreshProductDropdown();
+        // Add product
+        $('add_product').addEventListener('click', async () => {
+          const name = $('new_product').value.trim();
+          if(!name){ showStatus('Enter product name', true); return; }
+          const res = await doFetch('/create-product', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ product_name: name }) });
+          if(res.ok){ showStatus('Product added'); await refreshProductDropdown(name); $('new_product').value=''; }
+          else showStatus('Failed to add product', true);
+        });
+        $('refresh_products').addEventListener('click', async () => { await refreshProductDropdown(); showStatus('Products refreshed'); });
+        $('load_product').addEventListener('click', () => { $('product_select').dispatchEvent(new Event('change')); });
+        // Upload handler: read PRN content then upload and call matcher (parallel). UI uses server fields if present, otherwise matcher result.
+        $('upload').addEventListener('click', async () => {
+          const f = $('file').files[0];
+          const prod = $('product_select').value;
+          const stage = $('stage_select').value;
+          if(!prod){ showStatus('Select a product first', true); return; }
+          if(!stage){ showStatus('Select a stage first', true); return; }
+          if(!f){ showStatus('Pick a .prn file first', true); return; }
+          // read prn text to send to matcher
+          let prnText = '';
+          try { prnText = await readFileText(f); } catch(e){ console.warn('Unable to read PRN text for matching', e); prnText = ''; }
+          showStatus('Uploading...');
+          const fd = new FormData();
+          fd.append('file', f);
+          fd.append('product_name', prod);
+          fd.append('stage', stage);
+          // start upload (server will run extractor and return 'fields') and client-side match in parallel
+          const uploadPromise = doFetch('/upload', { method:'POST', body: fd });
+          const matchPromise = (prnText !== '') ? doFetch('/add_variable', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ product_name: prod, stage: stage, prn_content: prnText })
+          }) : Promise.resolve({ ok:false, json:{} });
+          const [uploadResp, matchResp] = await Promise.all([uploadPromise, matchPromise]);
+          const uploadJson = uploadResp.json || {};
+          const matchMap = (matchResp.ok && matchResp.json && matchResp.json.matched_variables) ? matchResp.json.matched_variables : (uploadJson.matched_variables || {});
+          const returnedFields = Array.isArray(uploadJson.fields) ? uploadJson.fields : Object.keys(matchMap || {});
+          const responseObj = {
+            fields: returnedFields,
+            filename: uploadJson.filename || '',
+            preview_url: uploadJson.preview_url || null,
+            prn_download_url: uploadJson.filename ? `${base}/get-prn/${encodeURIComponent(prod)}/${encodeURIComponent(stage)}/${encodeURIComponent(uploadJson.filename)}` : null
+          };
+          // show extracted fields and matched badges
+          await handleAfterUpload(responseObj, matchMap, prod, stage, prnText);
+          // if preview_url present, show it in the pane
+          if (responseObj.preview_url) {
+            const justPrn = { prn_filename: responseObj.filename, preview_url: responseObj.preview_url, uploaded_at: null, prn_download_url: responseObj.prn_download_url };
+            showPreviewInPane(justPrn, prod, stage);
+          }
+          showStatus(uploadResp.ok ? 'File uploaded — edit values and save below' : `Upload returned status ${uploadResp.status} (see server)` , !uploadResp.ok);
+        });
+        // reload variables + PRN list for selection
+        async function reloadVars() {
+          const prod = $('product_select').value;
+          const stage = $('stage_select').value;
+          if(!prod || !stage){ $('extracted').innerHTML=''; $('preview_panel').style.display='none'; $('generated_preview_panel').style.display='none'; return; }
+          const r = await doFetch('/get-product/' + encodeURIComponent(prod) + '?stage=' + encodeURIComponent(stage));
+          if(r.ok && r.json){
+            let html = `<h4>Product :- ${prod}     Stage :-  ${stage}</h4><div id="vars"></div>`;
+            $('extracted').innerHTML = html;
+            renderVars(r.json.variables || [], prod, stage);
+            renderPrns(r.json.prns_for_stage || [], prod, stage);
+            // also fetch generated by listing and filtering filled filenames
+            const generated = await fetchGenerated(prod, stage);
+            renderGenerated(generated, prod, stage);
+            // ensure lastUploadContext.template_filename falls back to latest uploaded if not set
+            if(!lastUploadContext.template_filename){
+              const prns = r.json.prns_for_stage || [];
+              if(prns.length > 0) lastUploadContext.template_filename = prns[0].prn_filename;
+            }
+          } else {
+            $('extracted').innerHTML = '<div class="muted">Failed to load variables</div>';
+            $('preview_panel').style.display='none';
+            $('generated_preview_panel').style.display='none';
+          }
+        }
+        $('product_select').addEventListener('change', reloadVars);
+        $('stage_select').addEventListener('change', reloadVars);
+        // modal controls
+        $('close_modal').addEventListener('click', closeModal);
+        $('preview_modal').addEventListener('click', (ev) => { if(ev.target === $('preview_modal')) closeModal(); });
+        // init
+        $('preview_panel').style.display = 'none';
+        $('generated_preview_panel').style.display = 'none';
+      });
+    })();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.min.js" ></script>
+  </body>
+</html>
