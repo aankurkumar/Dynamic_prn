@@ -46,6 +46,14 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+# def change(product_name: str, stage: str, filename: str):
+#     safe_product = normalize_product_folder_name(product_name)
+#     safe_stage = stage_folder_name(stage)
+#     if not safe_stage:
+#         return None
+#     safe_filename = secure_filename(filename)
+#     return os.path.join(app.config["UPLOAD_FOLDER"], safe_product, safe_stage, safe_filename)
+
 def stage_folder_name(stage_raw: str):
     if not stage_raw:
         return None
